@@ -68,6 +68,7 @@ import android.view.animation.AccelerateDecelerateInterpolator;
 @SuppressLint("ViewConstructor")
 public class TapTargetView extends View {
   private boolean isDismissed = false;
+  private boolean isDismissing = false;
   private boolean isInteractable = true;
 
   final int TARGET_PADDING;
@@ -272,6 +273,7 @@ public class TapTargetView extends View {
         @Override
         public void onEnd() {
           pulseAnimation.start();
+          isInteractable = true;
         }
       })
       .build();
@@ -310,8 +312,7 @@ public class TapTargetView extends View {
       .onEnd(new FloatValueAnimatorBuilder.EndListener() {
         @Override
         public void onEnd() {
-          onDismiss(true);
-          ViewUtil.removeView(parent, TapTargetView.this);
+          finishDismiss(true);
         }
       })
       .build();
@@ -339,8 +340,7 @@ public class TapTargetView extends View {
       .onEnd(new FloatValueAnimatorBuilder.EndListener() {
         @Override
         public void onEnd() {
-          onDismiss(true);
-          ViewUtil.removeView(parent, TapTargetView.this);
+          finishDismiss(true);
         }
       })
       .build();
@@ -429,6 +429,9 @@ public class TapTargetView extends View {
     globalLayoutListener = new ViewTreeObserver.OnGlobalLayoutListener() {
       @Override
       public void onGlobalLayout() {
+        if (isDismissing) {
+          return;
+        }
         updateTextLayouts();
         target.onReady(new Runnable() {
           @Override
@@ -459,10 +462,8 @@ public class TapTargetView extends View {
             drawTintedTarget();
             requestFocus();
             calculateDimensions();
-            if (!visible) {
-              expandAnimation.start();
-              visible = true;
-            }
+
+            startExpandAnimation();
           }
         });
       }
@@ -508,6 +509,14 @@ public class TapTargetView extends View {
         return false;
       }
     });
+  }
+
+  private void startExpandAnimation() {
+    if (!visible) {
+      isInteractable = false;
+      expandAnimation.start();
+      visible = true;
+    }
   }
 
   protected void applyTargetOptions(Context context) {
@@ -607,6 +616,7 @@ public class TapTargetView extends View {
   void onDismiss(boolean userInitiated) {
     if (isDismissed) return;
 
+    isDismissing = false;
     isDismissed = true;
 
     for (final ValueAnimator animator : animators) {
@@ -732,13 +742,23 @@ public class TapTargetView extends View {
    *                     (results in different dismiss animations)
    */
   public void dismiss(boolean tappedTarget) {
+    isDismissing = true;
     pulseAnimation.cancel();
     expandAnimation.cancel();
+    if (!visible) {
+      finishDismiss(tappedTarget);
+      return;
+    }
     if (tappedTarget) {
       dismissConfirmAnimation.start();
     } else {
       dismissAnimation.start();
     }
+  }
+
+  private void finishDismiss(boolean userInitiated) {
+    onDismiss(userInitiated);
+    ViewUtil.removeView(parent, TapTargetView.this);
   }
 
   /** Specify whether to draw a wireframe around the view, useful for debugging **/
@@ -879,6 +899,11 @@ public class TapTargetView extends View {
   }
 
   void calculateDrawingBounds() {
+    if (outerCircleCenter == null) {
+      // Called dismiss before we got a chance to display the tap target
+      // So we have no center -> cant determine the drawing bounds
+      return;
+    }
     drawingBounds.left = (int) Math.max(0, outerCircleCenter[0] - outerCircleRadius);
     drawingBounds.top = (int) Math.min(0, outerCircleCenter[1] - outerCircleRadius);
     drawingBounds.right = (int) Math.min(getWidth(),
