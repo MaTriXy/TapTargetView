@@ -37,7 +37,7 @@ import android.graphics.Region;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 import android.text.DynamicLayout;
 import android.text.Layout;
 import android.text.SpannableStringBuilder;
@@ -78,6 +78,7 @@ public class TapTargetView extends View {
   final int TEXT_SPACING;
   final int TEXT_MAX_WIDTH;
   final int TEXT_POSITIONING_BIAS;
+  final int TEXT_SAFE_AREA_PADDING;
   final int CIRCLE_PADDING;
   final int GUTTER_DIM;
   final int SHADOW_DIM;
@@ -387,6 +388,7 @@ public class TapTargetView extends View {
     TEXT_SPACING = UiUtil.dp(context, 8);
     TEXT_MAX_WIDTH = UiUtil.dp(context, 360);
     TEXT_POSITIONING_BIAS = UiUtil.dp(context, 20);
+    TEXT_SAFE_AREA_PADDING = UiUtil.dp(getContext(), 10);
     GUTTER_DIM = UiUtil.dp(context, 88);
     SHADOW_DIM = UiUtil.dp(context, 8);
     SHADOW_JITTER_DIM = UiUtil.dp(context, 1);
@@ -426,6 +428,15 @@ public class TapTargetView extends View {
 
     applyTargetOptions(context);
 
+    final boolean layoutNoLimits;
+    if (context instanceof Activity) {
+      Activity activity = (Activity) context;
+      final int flags = activity.getWindow().getAttributes().flags;
+      layoutNoLimits = (flags & WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS) != 0;
+    } else {
+      layoutNoLimits = false;
+    }
+
     globalLayoutListener = new ViewTreeObserver.OnGlobalLayoutListener() {
       @Override
       public void onGlobalLayout() {
@@ -451,12 +462,26 @@ public class TapTargetView extends View {
 
               final Rect rect = new Rect();
               boundingParent.getWindowVisibleDisplayFrame(rect);
+              int[] parentLocation = new int[2];
+              boundingParent.getLocationInWindow(parentLocation);
+
+              final boolean canDrawBehindSystemBars = Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT;
+              if (target.drawBehindStatusBar && canDrawBehindSystemBars) {
+                rect.top = parentLocation[1];
+              }
+              if (target.drawBehindNavigationBar && canDrawBehindSystemBars) {
+                rect.bottom = parentLocation[1] + boundingParent.getHeight();
+              }
 
               // We bound the boundaries to be within the screen's coordinates to
-              // handle the case where the layout bounds do not match
-              // (like when FLAG_LAYOUT_NO_LIMITS is specified)
-              topBoundary = Math.max(0, rect.top);
-              bottomBoundary = Math.min(rect.bottom, displayMetrics.heightPixels);
+              // handle the case where the flag FLAG_LAYOUT_NO_LIMITS is set
+              if (layoutNoLimits) {
+                topBoundary = Math.max(0, rect.top);
+                bottomBoundary = Math.min(rect.bottom, displayMetrics.heightPixels);
+              } else {
+                topBoundary = rect.top;
+                bottomBoundary = rect.bottom;
+              }
             }
 
             drawTintedTarget();
@@ -520,7 +545,7 @@ public class TapTargetView extends View {
   }
 
   protected void applyTargetOptions(Context context) {
-    shouldTintTarget = target.tintTarget;
+    shouldTintTarget = !target.transparentTarget && target.tintTarget;
     shouldDrawShadow = target.drawShadow;
     cancelable = target.cancelable;
 
@@ -745,7 +770,7 @@ public class TapTargetView extends View {
     isDismissing = true;
     pulseAnimation.cancel();
     expandAnimation.cancel();
-    if (!visible) {
+    if (!visible || outerCircleCenter == null) {
       finishDismiss(tappedTarget);
       return;
     }
@@ -931,7 +956,10 @@ public class TapTargetView extends View {
     final int possibleTop = targetBounds.centerY() - TARGET_RADIUS - TARGET_PADDING - totalTextHeight;
     final int top;
     if (possibleTop > topBoundary) {
-      top = possibleTop;
+      Rect textSafeArea = new Rect();
+      getWindowVisibleDisplayFrame(textSafeArea);
+      textSafeArea.inset(0, TEXT_SAFE_AREA_PADDING);
+      top = Math.max(possibleTop, textSafeArea.top);
     } else {
       top = targetBounds.centerY() + TARGET_RADIUS + TARGET_PADDING;
     }
@@ -944,7 +972,7 @@ public class TapTargetView extends View {
   }
 
   int[] getOuterCircleCenterPoint() {
-    if (inGutter(targetBounds.centerY())) {
+    if (inGutter(targetBounds.centerY()) || target.forceCenteredTarget) {
       return new int[]{targetBounds.centerX(), targetBounds.centerY()};
     }
 

@@ -1,16 +1,19 @@
-apply plugin: 'com.android.application'
+plugins {
+    alias(libs.plugins.android.application)
+}
 
 android {
-    compileSdkVersion defCompileSdkVersion
-    buildToolsVersion defBuildToolsVersion
+    namespace 'com.getkeepsafe.taptargetviewsample'
+    compileSdk libs.versions.compileSdk.get().toInteger()
 
     defaultConfig {
-        applicationId "com.getkeepsafe.taptargetviewsample"
-        minSdkVersion 14
-        targetSdkVersion 27
+        applicationId 'com.getkeepsafe.taptargetviewsample'
+        minSdkVersion libs.versions.minSdk.get().toInteger()
+        targetSdkVersion libs.versions.compileSdk.get().toInteger()
         versionCode 1
-        versionName "1.0"
+        versionName '1.0'
     }
+
     buildTypes {
         release {
             minifyEnabled false
@@ -21,7 +24,7 @@ android {
 
 dependencies {
     implementation project(':taptargetview')
-    implementation "com.android.support:appcompat-v7:$defSupportLibraryVersion"
-    implementation "com.android.support:design:$defSupportLibraryVersion"
-    implementation 'com.facebook.stetho:stetho:1.5.0'
+    implementation libs.androidx.appcompat
+    implementation libs.material
+    implementation libs.stetho
 }

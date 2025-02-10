@@ -19,13 +19,13 @@ import android.content.Context;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
-import android.support.annotation.ColorInt;
-import android.support.annotation.ColorRes;
-import android.support.annotation.DimenRes;
-import android.support.annotation.IdRes;
-import android.support.annotation.Nullable;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.widget.Toolbar;
+import androidx.annotation.ColorInt;
+import androidx.annotation.ColorRes;
+import androidx.annotation.DimenRes;
+import androidx.annotation.IdRes;
+import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
+import androidx.appcompat.widget.Toolbar;
 import android.view.View;
 
 /**
@@ -83,6 +83,11 @@ public class TapTarget {
   boolean tintTarget = true;
   boolean transparentTarget = false;
   float descriptionTextAlpha = 0.54f;
+
+  boolean drawBehindStatusBar = true;
+  boolean drawBehindNavigationBar = true;
+
+  boolean forceCenteredTarget = false;
 
   /**
    * Return a tap target for the overflow button from the given toolbar
@@ -201,6 +206,24 @@ public class TapTarget {
 
     this.title = title;
     this.description = description;
+  }
+
+  /** Specify whether the target should draw behind the status bar. */
+  public TapTarget setDrawBehindStatusBar(boolean drawBehindStatusBar) {
+    this.drawBehindStatusBar = drawBehindStatusBar;
+    return this;
+  }
+
+  /** Specify whether the target should draw behind the navigation bar. */
+  public TapTarget setDrawBehindNavigationBar(boolean drawBehindNavigationBar) {
+    this.drawBehindNavigationBar = drawBehindNavigationBar;
+    return this;
+  }
+
+  /** Specify whether the target should be forced to center on the target view.  */
+  public TapTarget setForceCenteredTarget(boolean forceCenteredTarget) {
+    this.forceCenteredTarget = forceCenteredTarget;
+    return this;
   }
 
   /** Specify whether the target should be transparent **/
